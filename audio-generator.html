@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>音频生成工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>H5 小猫咪 音频生成工具</h1>
+        <p>点击下方按钮生成并下载音频文件</p>
+        
+        <div>
+            <button onclick="generateTissueSound()">生成纸巾音频</button>
+            <button onclick="generateCarrotSound()">生成萝卜音频</button>
+            <button onclick="generateTreatSound()">生成冻干音频</button>
+            <button onclick="generateEatSound()">生成吃食音效</button>
+            <button onclick="generateSuccessSound()">生成成功音效</button>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+
+        function updateStatus(message) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.classList.add('active');
+        }
+
+        /**
+         * 使用 TTS 合成语音（需要浏览器支持 SpeechSynthesis API）
+         */
+        function synthesizeSpeech(text, onComplete) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-CN';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+
+            // 创建 MediaRecorder 来捕获音频
+            const audioContext = new AudioContext();
+            const mediaStreamDest = audioContext.createMediaStreamDestination();
+
+            // 使用 Web Audio API 生成的源连接到媒体流
+            const source = audioContext.createOscillator();
+            source.frequency.value = 440; // A4
+            source.connect(mediaStreamDest);
+
+            const mediaRecorder = new MediaRecorder(mediaStreamDest.stream);
+            const chunks = [];
+
+            mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                onComplete(blob);
+                source.stop();
+            };
+
+            mediaRecorder.start();
+            source.start();
+
+            // 使用 TTS
+            speechSynthesis.speak(utterance);
+
+            utterance.onend = () => {
+                source.stop();
+                mediaRecorder.stop();
+            };
+
+            // 设置超时（以防 TTS 不工作）
+            setTimeout(() => {
+                try {
+                    source.stop();
+                    mediaRecorder.stop();
+                } catch (e) {}
+            }, 3000);
+        }
+
+        /**
+         * 使用 Web Audio API 生成音效
+         */
+        function generateTone(frequency, duration, onComplete) {
+            const audioContext = new AudioContext();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.frequency.value = frequency;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // 创建 MediaRecorder
+            const mediaStreamDest = audioContext.createMediaStreamDestination();
+            gainNode.connect(mediaStreamDest);
+
+            const mediaRecorder = new MediaRecorder(mediaStreamDest.stream);
+            const chunks = [];
+
+            mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                onComplete(blob);
+            };
+
+            mediaRecorder.start();
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+
+            setTimeout(() => {
+                try {
+                    mediaRecorder.stop();
+                } catch (e) {}
+            }, (duration + 0.1) * 1000);
+        }
+
+        /**
+         * 下载 Blob 为文件
+         */
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 音频生成函数
+        function generateTissueSound() {
+            updateStatus('生成纸巾音频中...');
+            setTimeout(() => {
+                generateTone(440, 0.5, (blob) => {
+                    downloadBlob(blob, 'tissue.webm');
+                    updateStatus('纸巾音频已生成！');
+                });
+            }, 100);
+        }
+
+        function generateCarrotSound() {
+            updateStatus('生成萝卜音频中...');
+            setTimeout(() => {
+                generateTone(550, 0.5, (blob) => {
+                    downloadBlob(blob, 'carrot.webm');
+                    updateStatus('萝卜音频已生成！');
+                });
+            }, 100);
+        }
+
+        function generateTreatSound() {
+            updateStatus('生成冻干音频中...');
+            setTimeout(() => {
+                generateTone(660, 0.5, (blob) => {
+                    downloadBlob(blob, 'treat.webm');
+                    updateStatus('冻干音频已生成！');
+                });
+            }, 100);
+        }
+
+        function generateEatSound() {
+            updateStatus('生成吃食音效中...');
+            setTimeout(() => {
+                generateTone(300, 0.4, (blob) => {
+                    downloadBlob(blob, 'eat.webm');
+                    updateStatus('吃食音效已生成！');
+                });
+            }, 100);
+        }
+
+        function generateSuccessSound() {
+            updateStatus('生成成功音效中...');
+            setTimeout(() => {
+                generateTone(800, 0.5, (blob) => {
+                    downloadBlob(blob, 'success.webm');
+                    updateStatus('成功音效已生成！');
+                });
+            }, 100);
+        }
+    </script>
+</body>
+</html>
